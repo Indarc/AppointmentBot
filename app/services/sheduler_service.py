@@ -1,4 +1,3 @@
-from calendar import weekday
 from datetime import date, datetime, time, timedelta
 from typing import cast
 from zoneinfo import ZoneInfo
@@ -19,8 +18,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.specialist import Specialist, SpecialistWorkingHours, SpecialistBreak
-
-
 
 from datetime import date, time
 
