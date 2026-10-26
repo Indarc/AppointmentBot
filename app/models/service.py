@@ -4,7 +4,7 @@ from sqlalchemy import Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
-from app.models import specialist_services
+from app.models.specialist_service import specialist_services
 
 if TYPE_CHECKING:
     from app.models import Specialist
@@ -14,7 +14,7 @@ class Service(Base):
     __tablename__ = "services"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    
+
     name: Mapped[str] = mapped_column(
         String(100), 
         nullable=False
