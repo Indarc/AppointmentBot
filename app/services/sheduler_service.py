@@ -21,6 +21,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.specialist import Specialist, SpecialistWorkingHours, SpecialistBreak
 
 
+
+from datetime import date, time
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.specialist import Specialist
+
+
 class SchedulerService:
 
     @staticmethod
@@ -44,21 +53,20 @@ class SchedulerService:
                 f"Специалист с id={specialist_id} не найден."
             )
 
-        # Ищем пересекающиеся рабочие интервалы.
-        statement = select(SpecialistWorkingHours).where(
-            SpecialistWorkingHours.specialist_id == specialist_id,
-            SpecialistWorkingHours.weekday == day.weekday(),
-            SpecialistWorkingHours.start_time < end_at,
-            SpecialistWorkingHours.end_time > start_at,
+        # Проверяем пересечение с существующими рабочими интервалами.
+        result = await session.execute(
+            select(SpecialistWorkingHours).where(
+                SpecialistWorkingHours.specialist_id == specialist_id,
+                SpecialistWorkingHours.weekday == day.weekday(),
+                SpecialistWorkingHours.start_time < end_at,
+                SpecialistWorkingHours.end_time > start_at,
+            )
         )
 
-        result = await session.execute(statement)
-        existing_period = result.scalars().first()
-
-        if existing_period is not None:
+        if result.scalars().first() is not None:
             raise ValueError(
-                f"Рабочее время пересекается с существующим "
-                f"расписанием на {day}: "
+                f"Рабочее время пересекается с существующим расписанием "
+                f"на {day}: "
                 f"{start_at.isoformat(timespec='minutes')} - "
                 f"{end_at.isoformat(timespec='minutes')}."
             )
@@ -94,15 +102,16 @@ class SchedulerService:
                 f"Специалист с id={specialist_id} не найден."
             )
 
-        # Ищем рабочий интервал, полностью содержащий перерыв.
-        statement = select(SpecialistWorkingHours).where(
-            SpecialistWorkingHours.specialist_id == specialist_id,
-            SpecialistWorkingHours.weekday == day.weekday(),
-            SpecialistWorkingHours.start_time <= start_at,
-            SpecialistWorkingHours.end_time >= end_at,
+        # Находим рабочий интервал, содержащий перерыв.
+        result = await session.execute(
+            select(SpecialistWorkingHours).where(
+                SpecialistWorkingHours.specialist_id == specialist_id,
+                SpecialistWorkingHours.weekday == day.weekday(),
+                SpecialistWorkingHours.start_time <= start_at,
+                SpecialistWorkingHours.end_time >= end_at,
+            )
         )
 
-        result = await session.execute(statement)
         working_period = result.scalars().first()
 
         if working_period is None:
@@ -114,16 +123,15 @@ class SchedulerService:
             )
 
         # Проверяем пересечение с другими перерывами.
-        statement = select(SpecialistBreak).where(
-            SpecialistBreak.working_hours_id == working_period.id,
-            SpecialistBreak.start_time < end_at,
-            SpecialistBreak.end_time > start_at,
+        result = await session.execute(
+            select(SpecialistBreak).where(
+                SpecialistBreak.working_hours_id == working_period.id,
+                SpecialistBreak.start_time < end_at,
+                SpecialistBreak.end_time > start_at,
+            )
         )
 
-        result = await session.execute(statement)
-        existing_break = result.scalars().first()
-
-        if existing_break is not None:
+        if result.scalars().first() is not None:
             raise ValueError(
                 "Перерыв пересекается с уже существующим перерывом."
             )
