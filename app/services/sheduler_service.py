@@ -12,20 +12,6 @@ from app.models.service import Service
 from app.models.specialist import SpecialistBreak, SpecialistWorkingHours, Specialist
 from app.models.specialist_service import specialist_services
 
-from datetime import date, time
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.specialist import Specialist, SpecialistWorkingHours, SpecialistBreak
-
-from datetime import date, time
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.specialist import Specialist
-
 
 class SchedulerService:
 
@@ -54,7 +40,7 @@ class SchedulerService:
         result = await session.execute(
             select(SpecialistWorkingHours).where(
                 SpecialistWorkingHours.specialist_id == specialist_id,
-                SpecialistWorkingHours.weekday == day.weekday(),
+                SpecialistWorkingHours.date == day,
                 SpecialistWorkingHours.start_time < end_at,
                 SpecialistWorkingHours.end_time > start_at,
             )
@@ -70,7 +56,7 @@ class SchedulerService:
 
         working_period = SpecialistWorkingHours(
             specialist_id=specialist_id,
-            weekday=day.weekday(),
+            date=day,
             start_time=start_at,
             end_time=end_at,
         )
@@ -103,7 +89,7 @@ class SchedulerService:
         result = await session.execute(
             select(SpecialistWorkingHours).where(
                 SpecialistWorkingHours.specialist_id == specialist_id,
-                SpecialistWorkingHours.weekday == day.weekday(),
+                SpecialistWorkingHours.date == day,
                 SpecialistWorkingHours.start_time <= start_at,
                 SpecialistWorkingHours.end_time >= end_at,
             )
@@ -174,12 +160,12 @@ class SchedulerService:
                 f"service with id {service_id}"
             )
 
-        # Получение рабочих интервалов на день недели: weekday() возвращает 0 для понедельника.
+        # Получение рабочих интервалов по дате.
         result = await session.execute(
             select(SpecialistWorkingHours)
             .where(
                 SpecialistWorkingHours.specialist_id == specialist_id,
-                SpecialistWorkingHours.weekday == day.weekday(),
+                SpecialistWorkingHours.date == day,
             )
             .options(selectinload(SpecialistWorkingHours.breaks))
             .order_by(SpecialistWorkingHours.start_time)
@@ -244,7 +230,7 @@ class SchedulerService:
         session: AsyncSession,
         specialist_id: int,
         day: date,
-    ):
+    ) -> list[tuple[time, time]]:
         """Возвращает рабочие часы специалиста на дату."""
 
         # Проверка наличия специалиста в базе-данных
@@ -252,17 +238,25 @@ class SchedulerService:
         if specialist is None:
             raise ValueError(f"Not found specialist with id {specialist_id}")
 
-        # Получаем рабочие часы и перерывы по дню недели
+        # Получаем рабочие часы по дню недели
         result = await session.execute(
             select(SpecialistWorkingHours)
             .where(
                 SpecialistWorkingHours.specialist_id == specialist_id,
-                SpecialistWorkingHours.weekday == day.weekday()
+                SpecialistWorkingHours.date == day
             )
-            .options(selectinload(SpecialistWorkingHours.breaks))
         )
 
-        result.scalars().all()
+        working_periods = result.scalars().all()
+
+        if not working_periods:
+            raise ValueError(f"Специалист не работает в данный день {day}")
+
+        working_hours = []
+        for period in working_periods:
+            working_hours.append((period.start_time, period.end_time))
+        working_hours.sort()
+        return working_hours
         
 
     @staticmethod
@@ -273,4 +267,16 @@ class SchedulerService:
         starts_at: datetime,
     ) -> bool:
         """Проверяет доступность выбранного времени."""
-        ...
+
+        specialist = await session.get(Specialist, specialist_id)
+        if specialist is None:
+            raise ValueError(f"Not found specialist with id {specialist_id}")
+
+        available_slots = await __class__.get_available_slots(session, specialist_id, service_id, day=starts_at.date())
+        free_slots = []
+        for slot in available_slots:
+            if slot.time() >= starts_at.time():
+                free_slots.append(slot)
+        if not free_slots:
+            return False
+        return True

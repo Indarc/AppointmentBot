@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from datetime import time
+from datetime import time, date
 
-from sqlalchemy import CheckConstraint, Integer, String, ForeignKey, Time
+from sqlalchemy import CheckConstraint, Date, Integer, String, ForeignKey, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -59,9 +59,8 @@ class SpecialistWorkingHours(Base):
         index=True
     )
 
-    # 0 = понедельник, 6 = воскресенье
-    weekday: Mapped[int] = mapped_column(
-        Integer,
+    date: Mapped[date] = mapped_column(
+        Date,
         nullable=False,
     )
 
