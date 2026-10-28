@@ -14,7 +14,6 @@ from app.models.specialist_service import specialist_services
 
 
 class SchedulerService:
-
     @staticmethod
     async def create_schedule(
         session: AsyncSession,
@@ -224,7 +223,6 @@ class SchedulerService:
 
         return sorted(slots)
 
-
     @staticmethod
     async def get_working_hours(
         session: AsyncSession,
@@ -258,7 +256,6 @@ class SchedulerService:
         working_hours.sort()
         return working_hours
         
-
     @staticmethod
     async def is_available(
         session: AsyncSession,

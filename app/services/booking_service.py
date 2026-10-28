@@ -83,13 +83,15 @@ class BookingService:
         
         return booking
 
+    @staticmethod
     async def get_booking_by_id(
-        self, session: AsyncSession, booking_id: int
+        session: AsyncSession, booking_id: int
     ) -> Booking | None:
         return await session.get(Booking, booking_id)
 
-    async def delete_booking(self, session: AsyncSession, booking_id: int, reason: BookingDeleteReason) -> None:
-        booking = await self.get_booking_by_id(session, booking_id)
+    @staticmethod
+    async def delete_booking(session: AsyncSession, booking_id: int, reason: BookingDeleteReason) -> None:
+        booking = await __class__.get_booking_by_id(session, booking_id)
         if booking is None:
             raise ValueError(f"Booking with id {booking_id} not found")
 
